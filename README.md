@@ -1,1 +1,1 @@
-![plot](./lab1.gif)
+![plot](./lab2.gif)

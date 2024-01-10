@@ -9,7 +9,7 @@ let b = 0.1;
 let c = 0.2;
 let d = 0.1;
 function updateSurface() {
-    surface.BufferData(CreateSurfaceData());
+    surface.BufferData(...CreateSurfaceData());
     draw()
 }
 
@@ -22,12 +22,15 @@ function deg2rad(angle) {
 function Model(name) {
     this.name = name;
     this.iVertexBuffer = gl.createBuffer();
+    this.iNormalBuffer = gl.createBuffer();
     this.count = 0;
 
-    this.BufferData = function (vertices) {
+    this.BufferData = function (vertices, normals) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STREAM_DRAW);
 
         this.count = vertices.length / 3;
     }
@@ -37,8 +40,11 @@ function Model(name) {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribVertex);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
+        gl.vertexAttribPointer(shProgram.iAttribNormal, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(shProgram.iAttribNormal);
 
-        gl.drawArrays(gl.LINE_STRIP, 0, this.count);
+        gl.drawArrays(gl.TRIANGLES, 0, this.count);
     }
 }
 
@@ -85,13 +91,22 @@ function draw() {
     /* Multiply the projection matrix times the modelview matrix to give the
        combined transformation matrix, and send that to the shader program. */
     let modelViewProjection = m4.multiply(projection, matAccum1);
-
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection);
 
     /* Draw the six faces of a cube, with different colors. */
-    gl.uniform4fv(shProgram.iColor, [1, 1, 0, 1]);
+    let col = hexToRgb(document.getElementById('col').value)
+    gl.uniform4fv(shProgram.iColor, [...col, 1]);
 
     surface.Draw();
+}
+
+function hexToRgb(hex) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return [
+        parseInt(result[1], 16) / 256,
+        parseInt(result[2], 16) / 256,
+        parseInt(result[3], 16) / 256
+    ]
 }
 
 function CreateSurfaceData() {
@@ -100,15 +115,27 @@ function CreateSurfaceData() {
     c = parseFloat(document.getElementById('c').value);
     d = parseFloat(document.getElementById('d').value);
     let vertexList = [];
+    let normalList = [];
     let steps = 100;
     let uPlus = (Math.PI * 2) / steps;
     let vPlus = (Math.PI * 2) / steps;
     for (let u = 0; u < Math.PI * 4; u += uPlus) {
         for (let v = 0; v < Math.PI * 2; v += vPlus) {
             vertexList.push(...ahv(u, v));
+            vertexList.push(...ahv(u + uPlus, v));
+            vertexList.push(...ahv(u, v + vPlus));
+            vertexList.push(...ahv(u, v + vPlus));
+            vertexList.push(...ahv(u + uPlus, v));
+            vertexList.push(...ahv(u + uPlus, v + vPlus));
+            normalList.push(...ahvNormal(u, v));
+            normalList.push(...ahvNormal(u + uPlus, v));
+            normalList.push(...ahvNormal(u, v + vPlus));
+            normalList.push(...ahvNormal(u, v + vPlus));
+            normalList.push(...ahvNormal(u + uPlus, v));
+            normalList.push(...ahvNormal(u + uPlus, v + vPlus));
         }
     }
-    return vertexList;
+    return [vertexList, normalList];
 }
 
 const { sin, cos, pow } = Math;
@@ -126,6 +153,16 @@ function y0(v) {
     return c * pow(sin(v), 3)
 }
 
+let plus = 0.001
+function ahvNormal(u, v) {
+    let uv = ahv(u, v)
+    let uPlus = ahv(u + plus, v)
+    let vPlus = ahv(u, v + plus)
+    const dU = [(uv[0] - uPlus[0]) / plus, (uv[1] - uPlus[1]) / plus, (uv[2] - uPlus[2]) / plus]
+    const dV = [(uv[0] - vPlus[0]) / plus, (uv[1] - vPlus[1]) / plus, (uv[2] - uPlus[2]) / plus]
+    return m4.normalize(m4.cross(dU, dV))
+}
+
 
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
@@ -135,11 +172,13 @@ function initGL() {
     shProgram.Use();
 
     shProgram.iAttribVertex = gl.getAttribLocation(prog, "vertex");
+    shProgram.iAttribNormal = gl.getAttribLocation(prog, "normal");
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
     shProgram.iColor = gl.getUniformLocation(prog, "color");
+    shProgram.iLightPos = gl.getUniformLocation(prog, "lightPos");
 
     surface = new Model('Surface');
-    surface.BufferData(CreateSurfaceData());
+    surface.BufferData(...CreateSurfaceData());
 
     gl.enable(gl.DEPTH_TEST);
 }
