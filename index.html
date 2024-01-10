@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+
+    <title>PA#1</title>
+    <style>
+        body {
+            background-color: #EEEEEE;
+        }
+    </style>
+
+    <script src="./Utils/trackball-rotator.js"></script>
+    <script src="./Utils/m4.js"></script>
+    <script src="./shader.gpu"></script>
+    <script src="./main.js"></script>
+
+</head>
+
+<body onload="init()">
+
+    <h2>A Cube with "Trackball" Mouse Rotation</h2>
+
+    <p id="message">Drag your mouse on the cube to rotate it.<br>
+        (On a touch screen, you can use your finger.)</p>
+    <p>define surface by adjusting the following parameters</p>
+    <input type="range" id="a" min="0" max="2" value="1" step='0.01' onchange="updateSurface()"><br>
+    <input type="range" id="b" min="0" max="2" value="0.1" step='0.01' onchange="updateSurface()"><br>
+    <input type="range" id="c" min="0" max="2" value="0.2" step='0.01' onchange="updateSurface()"><br>
+    <input type="range" id="d" min="0" max="2" value="0.1" step='0.01' onchange="updateSurface()">
+
+    <div id="canvas-holder">
+        <canvas width="600" height="600" id="webglcanvas" style="background-color:red"></canvas>
+    </div>
+
+
+</body>
+
+</html>

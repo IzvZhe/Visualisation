@@ -1,0 +1,1 @@
+![plot](./lab1.gif)
