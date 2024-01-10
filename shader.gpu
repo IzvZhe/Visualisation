@@ -42,4 +42,7 @@ void main() {
     }
     vec3 col = color.rgb*0.1+lambertian*color.rgb+vec3(1.0)*specular;
     gl_FragColor = vec4(col,1.0);
+    if(lightPos.x>100.0){
+        gl_FragColor = vec4(1.0);
+    }
 }`;

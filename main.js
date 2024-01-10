@@ -12,10 +12,11 @@ function updateSurface() {
     surface.BufferData(...CreateSurfaceData());
     draw()
 }
-
 function deg2rad(angle) {
     return angle * Math.PI / 180;
 }
+
+let light;
 
 
 // Constructor
@@ -95,10 +96,19 @@ function draw() {
 
     /* Draw the six faces of a cube, with different colors. */
     let col = hexToRgb(document.getElementById('col').value)
+    let z = document.getElementById('z').value
+    let r = document.getElementById('r').value
     gl.uniform4fv(shProgram.iColor, [...col, 1]);
+    gl.uniform3fv(shProgram.iLightPos, [r * Math.sin(Date.now() * 0.001), r * Math.cos(Date.now() * 0.001), z]);
 
     surface.Draw();
+    gl.uniform3fv(shProgram.iLightPos, [1000, Math.cos(Date.now() * 0.001), 0]);
+    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, m4.multiply(modelViewProjection,
+        m4.translation(r * Math.sin(Date.now() * 0.001), r * Math.cos(Date.now() * 0.001), z)));
+    light.Draw();
 }
+
+setInterval(draw, 1000 / 30)
 
 function hexToRgb(hex) {
     var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -179,6 +189,8 @@ function initGL() {
 
     surface = new Model('Surface');
     surface.BufferData(...CreateSurfaceData());
+    light = new Model('Surface');
+    light.BufferData(...CreateSphereData());
 
     gl.enable(gl.DEPTH_TEST);
 }
@@ -213,6 +225,34 @@ function createProgram(gl, vShader, fShader) {
         throw new Error("Link error in program:  " + gl.getProgramInfoLog(prog));
     }
     return prog;
+}
+
+function CreateSphereData() {
+    let vertexList = [];
+
+    let u = 0,
+        t = 0;
+    while (u < Math.PI * 2) {
+        while (t < Math.PI) {
+            let v = getSphereVertex(u, t);
+            let w = getSphereVertex(u + 0.1, t);
+            let wv = getSphereVertex(u, t + 0.1);
+            let ww = getSphereVertex(u + 0.1, t + 0.1);
+            vertexList.push(...v, ...w, ...wv, ...wv, ...w, ...ww);
+            t += 0.1;
+        }
+        t = 0;
+        u += 0.1;
+    }
+    return [vertexList, vertexList];
+}
+const radius = 0.1;
+function getSphereVertex(long, lat) {
+    return [
+        radius * Math.cos(long) * Math.sin(lat),
+        radius * Math.sin(long) * Math.sin(lat),
+        radius * Math.cos(lat)
+    ]
 }
 
 
