@@ -17,6 +17,21 @@ function deg2rad(angle) {
 }
 
 let light;
+let textu = [0.5, 0.5];
+window.onkeydown = (e) => {
+    if (e.keyCode == 87) {
+        textu[0] = Math.min(textu[0] + 0.01, 1);
+    }
+    else if (e.keyCode == 83) {
+        textu[0] = Math.max(textu[0] - 0.01, 0);
+    }
+    else if (e.keyCode == 68) {
+        textu[1] = Math.min(textu[1] + 0.01, 1);
+    }
+    else if (e.keyCode == 65) {
+        textu[1] = Math.max(textu[1] - 0.01, 0);
+    }
+}
 
 
 // Constructor
@@ -24,14 +39,17 @@ function Model(name) {
     this.name = name;
     this.iVertexBuffer = gl.createBuffer();
     this.iNormalBuffer = gl.createBuffer();
+    this.iTextureBuffer = gl.createBuffer();
     this.count = 0;
 
-    this.BufferData = function (vertices, normals) {
+    this.BufferData = function (vertices, normals, textures) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STREAM_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iTextureBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textures), gl.STREAM_DRAW);
 
         this.count = vertices.length / 3;
     }
@@ -44,6 +62,9 @@ function Model(name) {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
         gl.vertexAttribPointer(shProgram.iAttribNormal, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribNormal);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iTextureBuffer);
+        gl.vertexAttribPointer(shProgram.iAttribTexture, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(shProgram.iAttribTexture);
 
         gl.drawArrays(gl.TRIANGLES, 0, this.count);
     }
@@ -100,11 +121,13 @@ function draw() {
     let r = document.getElementById('r').value
     gl.uniform4fv(shProgram.iColor, [...col, 1]);
     gl.uniform3fv(shProgram.iLightPos, [r * Math.sin(Date.now() * 0.001), r * Math.cos(Date.now() * 0.001), z]);
+    gl.uniform2fv(shProgram.iTextu, textu);
+    gl.uniform1f(shProgram.iAngle, document.getElementById('angle').value);
 
     surface.Draw();
     gl.uniform3fv(shProgram.iLightPos, [1000, Math.cos(Date.now() * 0.001), 0]);
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, m4.multiply(modelViewProjection,
-        m4.translation(r * Math.sin(Date.now() * 0.001), r * Math.cos(Date.now() * 0.001), z)));
+        m4.translation(...ahv(textu[0]*Math.PI*4,textu[1]*Math.PI*2))));
     light.Draw();
 }
 
@@ -126,6 +149,7 @@ function CreateSurfaceData() {
     d = parseFloat(document.getElementById('d').value);
     let vertexList = [];
     let normalList = [];
+    let textureList = [];
     let steps = 100;
     let uPlus = (Math.PI * 2) / steps;
     let vPlus = (Math.PI * 2) / steps;
@@ -143,9 +167,15 @@ function CreateSurfaceData() {
             normalList.push(...ahvNormal(u, v + vPlus));
             normalList.push(...ahvNormal(u + uPlus, v));
             normalList.push(...ahvNormal(u + uPlus, v + vPlus));
+            textureList.push((u) / (Math.PI * 4), (v) / (Math.PI * 2));
+            textureList.push((u + uPlus) / (Math.PI * 4), (v) / (Math.PI * 2));
+            textureList.push((u) / (Math.PI * 4), (v + vPlus) / (Math.PI * 2));
+            textureList.push((u) / (Math.PI * 4), (v + vPlus) / (Math.PI * 2));
+            textureList.push((u + uPlus) / (Math.PI * 4), (v) / (Math.PI * 2));
+            textureList.push((u + uPlus) / (Math.PI * 4), (v + vPlus) / (Math.PI * 2));
         }
     }
-    return [vertexList, normalList];
+    return [vertexList, normalList, textureList];
 }
 
 const { sin, cos, pow } = Math;
@@ -183,9 +213,12 @@ function initGL() {
 
     shProgram.iAttribVertex = gl.getAttribLocation(prog, "vertex");
     shProgram.iAttribNormal = gl.getAttribLocation(prog, "normal");
+    shProgram.iAttribTexture = gl.getAttribLocation(prog, "texture");
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
     shProgram.iColor = gl.getUniformLocation(prog, "color");
     shProgram.iLightPos = gl.getUniformLocation(prog, "lightPos");
+    shProgram.iAngle = gl.getUniformLocation(prog, "angle");
+    shProgram.iTextu = gl.getUniformLocation(prog, "textu");
 
     surface = new Model('Surface');
     surface.BufferData(...CreateSurfaceData());
@@ -244,9 +277,9 @@ function CreateSphereData() {
         t = 0;
         u += 0.1;
     }
-    return [vertexList, vertexList];
+    return [vertexList, vertexList, vertexList];
 }
-const radius = 0.1;
+const radius = 0.05;
 function getSphereVertex(long, lat) {
     return [
         radius * Math.cos(long) * Math.sin(lat),
@@ -264,6 +297,7 @@ function init() {
     try {
         canvas = document.getElementById("webglcanvas");
         gl = canvas.getContext("webgl");
+        LoadTexture()
         if (!gl) {
             throw "Browser does not support WebGL";
         }
@@ -285,4 +319,28 @@ function init() {
     spaceball = new TrackballRotator(canvas, draw, 0);
 
     draw();
+}
+
+function LoadTexture() {
+    let texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    const image = new Image();
+    image.crossOrigin = 'anonymus';
+    image.src = "https://raw.githubusercontent.com/IzvZhe/Visualisation/tree/cgw/texture.jpg";
+    image.onload = () => {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            image
+        );
+        console.log("imageLoaded")
+        draw()
+    }
 }
